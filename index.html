@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>🔐 Секретная комната</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; }
+
+  body {
+    font-family: 'Segoe UI', sans-serif;
+    height: 100vh;
+    overflow: hidden;
+    background: #000;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Верхний UI */
+  .topbar {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    display: flex;
+    justify-content: space-between;
+    padding: 12px;
+    z-index: 10;
+  }
+  .topbar .left, .topbar .right { display: flex; gap: 10px; }
+  .btn-ui {
+    width: 48px; height: 48px;
+    background: linear-gradient(180deg, #4a4a4a, #2a2a2a);
+    border: 2px solid #1a1a1a;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    color: #ffd700;
+    cursor: pointer;
+    box-shadow: 0 3px 6px rgba(0,0,0,0.5);
+  }
+  .btn-ui:hover { filter: brightness(1.2); }
+
+  /* Комната */
+  .room {
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    background:
+      linear-gradient(to bottom,
+        #8a8a7a 0%, #8a8a7a 30%,
+        #3a7a7a 30%, #2d6060 100%);
+  }
+
+  /* Бирюзовая плитка (ромбовидный узор) */
+  .tile-wall {
+    position: absolute;
+    top: 30%;
+    left: 0; right: 0;
+    bottom: 0;
+    background:
+      repeating-linear-gradient(45deg,
+        #2d8080 0px, #2d8080 18px,
+        #1f6060 18px, #1f6060 20px,
+        #3a9090 20px, #3a9090 38px,
+        #1f6060 38px, #1f6060 40px),
+      repeating-linear-gradient(-45deg,
+        #2d8080 0px, #2d8080 18px,
+        #1f6060 18px, #1f6060 20px,
+        #3a9090 20px, #3a9090 38px,
+        #1f6060 38px, #1f6060 40px);
+    background-blend-mode: multiply;
+    opacity: 0.85;
+  }
+
+  /* Пол */
+  .floor {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 25%;
+    background:
+      repeating-linear-gradient(90deg,
+        #8b6f47 0px, #8b6f47 80px,
+        #6b5030 80px, #6b5030 82px),
+      repeating-linear-gradient(0deg,
+        #a08060 0px, #a08060 60px,
+        #8b6f47 60px, #8b6f47 62px);
+    background-blend-mode: multiply;
+    box-shadow: inset 0 10px 30px rgba(0,0,0,0.5);
+  }
+
+  /* Деревянная дверь */
+  .door {
+    position: absolute;
+    bottom: 25%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 220px;
+    height: 420px;
+    background: linear-gradient(180deg, #5a3a1a 0%, #3a2410 100%);
+    border: 6px solid #2a1808;
+    border-radius: 4px;
+    cursor: pointer;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.7);
+    transition: transform 1.2s ease-in;
+    transform-origin: left center;
+    z-index: 5;
+    overflow: hidden;
+  }
+  .door::before {
+    content: '';
+    position: absolute;
+    top: 10px; left: 15px; right: 15px; bottom: 10px;
+    background:
+      linear-gradient(180deg, #4a2a10, #3a2010);
+    border: 3px solid #2a1808;
+    border-radius: 2px;
+    box-shadow: inset 0 0 20px rgba(0,0,0,0.6);
+  }
+  .door::after {
+    content: '';
+    position: absolute;
+    right: 25px;
+    top: 50%;
+    font-size: 24px;
+    filter: drop-shadow(0 2px 3px rgba(0,0,0,0.5));
+  }
+  .door.opened {
+    transform: translateX(-50%) perspective(800px) rotateY(-70deg);
+  }
+  .door.opened::after { content: '🔓'; }
+  .door.shake { animation: shake 0.5s; }
+  @keyframes shake {
+    0%, 100% { transform: translateX(-50%); }
+    20% { transform: translateX(calc(-50% - 10px)); }
+    40% { transform: translateX(calc(-50% + 10px)); }
+    60% { transform: translateX(calc(-50% - 8px)); }
+    80% { transform: translateX(calc(-50% + 8px)); }
+  }
+
+  /* Цветные кнопки-сферы на стене */
+  .spheres {
+    position: absolute;
+    left: 35%;
+    top: 35%;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    z-index: 3;
+  }
+  .sphere {
+    width: 44px; height: 44px;
+    border-radius: 50%;
+    box-shadow:
+      inset -5px -5px 10px rgba(0,0,0,0.4),
+      inset 5px 5px 10px rgba(255,255,255,0.3),
+      0 4px 8px rgba(0,0,0,0.5);
+    cursor: pointer;
+    transition: transform 0.2s;
+  }
+  .sphere:hover { transform: scale(1.15); }
+  .sphere.red { background: radial-gradient(circle at 30% 30%, #ff6b6b, #c0392b); }
+  .sphere.yellow { background: radial-gradient(circle at 30% 30%, #ffe66d, #f39c12); }
+  .sphere.green { background: radial-gradient(circle at 30% 30%, #6bff6b, #27ae60); }
+  .sphere.cyan { background: radial-gradient(circle at 30% 30%, #6bffff, #16a085); }
+  .sphere.blue { background: radial-gradient(circle at 30% 30%, #6b9bff, #2980b9); }
+
+  /* Горшки с пальмами */
+  .plant {
+    position: absolute;
+    bottom: 25%;
+    z-index: 4;
+    cursor: pointer;
+    transition: transform 0.3s;
+  }
+  .plant:hover { transform: translateY(-5px); }
+  .plant.left { left: 5%; }
+  .plant.right { right: 5%; }
+
+  .pot {
+    width: 100px;
+    height: 80px;
+    background: linear-gradient(180deg, #b87333 0%, #8b5a2b 100%);
+    border-radius: 10px 10px 40px 40px;
+    position: relative;
+    box-shadow: 0 8px 15px rgba(0,0,0,0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+  .pot::before {
+    content: '';
+    position: absolute;
+    top: -8px; left: -5px; right: -5px;
+    height: 15px;
+    background: linear-gradient(180deg, #c8833f, #8b5a2b);
+    border-radius: 5px;
+  }
+  .pot-dot {
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    box-shadow: inset -2px -2px 4px rgba(0,0,0,0.4), inset 2px 2px 4px rgba(255,255,255,0.3);
+  }
+
+  .palm {
+    font-size: 120px;
+    position: absolute;
+    bottom: 60px;
+    left: 50%;
+    transform: translateX(-50%);
+    filter: drop-shadow(0 5px 10px rgba(0,0,0,0.3));
+  }
+
+  /* Ключ под правым горшком */
+  .key {
+    position: absolute;
+    bottom: 26%;
+    right: 8%;
+    font-size: 40px;
+    z-index: 3;
+    opacity: 0;
+    transition: opacity 0.4s;
+    filter: drop-shadow(0 3px 5px rgba(0,0,0,0.6));
+  }
+  .key.visible {
+    opacity: 1;
+    animation: keyAppear 0.5s;
+  }
+  @keyframes keyAppear {
+    0% { transform: scale(0) rotate(-180deg); }
+    100% { transform: scale(1) rotate(0); }
+  }
+  .key.blink {
+    animation: blink 0.3s 4;
+  }
+  @keyframes blink {
+    0%, 100% { transform: scale(1); filter: drop-shadow(0 3px 5px rgba(0,0,0,0.6)); }
+    50% { transform: scale(1.4); filter: drop-shadow(0 0 20px gold); }
+  }
+
+  .plant.lifted {
+    animation: liftPot 0.6s forwards;
+  }
+  @keyframes liftPot {
+    0% { transform: translateY(0); }
+    100% { transform: translateY(-30px) rotate(-8deg); }
+  }
+
+  /* Тайная книга */
+  .secret-book {
+    position: absolute;
+    bottom: 28%;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 70px;
+    z-index: 4;
+    opacity: 0;
+    pointer-events: none;
+    filter: drop-shadow(0 5px 10px rgba(0,0,0,0.7));
+    transition: opacity 0.6s;
+    cursor: pointer;
+  }
+  .secret-book.revealed {
+    opacity: 1;
+    pointer-events: auto;
+    animation: bookReveal 1s ease-out;
+  }
+  .secret-book.revealed:hover {
+    transform: translateX(-50%) scale(1.15);
+    filter: drop-shadow(0 0 20px gold);
+  }
+  @keyframes bookReveal {
+    0% {
+      opacity: 0;
+      transform: translateX(-50%) scale(0.3) rotate(-20deg);
+    }
+    60% {
+      opacity: 1;
+      transform: translateX(-50%) scale(1.2) rotate(5deg);
+    }
+    100% {
+      opacity: 1;
+      transform: translateX(-50%) scale(1) rotate(0);
+    }
+  }
+
+  /* Инвентарь */
+  .inventory {
+    position: absolute;
+    top: 12px;
+    right: 120px;
+    width: 50px;
+    height: 50px;
+    background: linear-gradient(180deg, #4a4a4a, #2a2a2a);
+    border: 2px solid #1a1a1a;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    box-shadow: 0 3px 6px rgba(0,0,0,0.5);
+  }
+  .inventory.has-key {
+    border: 2px solid gold;
+    box-shadow: 0 0 15px rgba(255,215,0,0.6);
+    animation: pulse 1.5s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 15px rgba(255,215,0,0.6); }
+    50% { box-shadow: 0 0 25px rgba(255,215,0,0.9); }
+  }
+
+  /* Подсказка */
+  .hint-bar {
+    position: absolute;
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.85);
+    color: #ffd700;
+    padding: 12px 25px;
+    border-radius: 25px;
+    border: 2px solid #ffd700;
+    font-size: 18px;
+    font-weight: bold;
+    z-index: 20;
+    text-align: center;
+    max-width: 80%;
+  }
+
+  .toast {
+    position: fixed;
+    top: 80px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-100px);
+    background: rgba(0,0,0,0.9);
+    color: white;
+    padding: 15px 25px;
+    border-radius: 12px;
+    border: 2px solid #ffd700;
+    font-size: 18px;
+    z-index: 50;
+    transition: transform 0.4s;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+
+  /* Экран победы */
+  .victory {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.9);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    z-index: 100;
+    color: white;
+    text-align: center;
+    padding: 20px;
+  }
+  .victory.show { display: flex; animation: fadeIn 0.5s; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  .victory h1 {
+    font-size: 56px;
+    margin-bottom: 20px;
+    background: linear-gradient(90deg, #ffd700, #ff6b6b, #4ecdc4);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .victory p { font-size: 24px; margin-bottom: 30px; }
+  .victory button {
+    padding: 15px 40px;
+    font-size: 20px;
+    background: linear-gradient(90deg, #6c5ce7, #a29bfe);
+    color: white;
+    border: none;
+    border-radius: 30px;
+    cursor: pointer;
+    font-weight: bold;
+    box-shadow: 0 5px 15px rgba(108,92,231,0.5);
+  }
+  .victory button:hover { transform: scale(1.1); }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="left">
+    <div class="btn-ui"></div>
+    <div class="btn-ui">🔊</div>
+  </div>
+  <div class="right">
+    <div class="btn-ui inventory" id="inv"></div>
+    <div class="btn-ui">☰</div>
+  </div>
+</div>
+
+<div class="room">
+  <div class="tile-wall"></div>
+  <div class="floor"></div>
+
+  <!-- Цветные сферы на стене -->
+  <div class="spheres">
+    <div class="sphere red"></div>
+    <div class="sphere yellow"></div>
+    <div class="sphere green"></div>
+    <div class="sphere cyan"></div>
+    <div class="sphere blue"></div>
+  </div>
+
+  <!-- Дверь -->
+  <div class="door" id="door"></div>
+
+  <!-- Тайная книга (за дверью) -->
+  <div class="secret-book" id="secretBook"></div>
+
+  <!-- Левая пальма -->
+  <div class="plant left">
+    <div class="palm">🌴</div>
+    <div class="pot">
+      <div class="pot-dot" style="background:radial-gradient(circle at 30% 30%, #6bff6b, #27ae60)"></div>
+      <div class="pot-dot" style="background:radial-gradient(circle at 30% 30%, #6b9bff, #2980b9)"></div>
+      <div class="pot-dot" style="background:radial-gradient(circle at 30% 30%, #ff6b6b, #c0392b)"></div>
+    </div>
+  </div>
+
+  <!-- Правая пальма (под ней ключ) -->
+  <div class="plant right" id="rightPlant">
+    <div class="palm">🌴</div>
+    <div class="pot">
+      <div class="pot-dot" style="background:radial-gradient(circle at 30% 30%, #ffe66d, #f39c12)"></div>
+      <div class="pot-dot" style="background:radial-gradient(circle at 30% 30%, #6b9bff, #2980b9)"></div>
+      <div class="pot-dot" style="background:radial-gradient(circle at 30% 30%, #6bffff, #16a085)"></div>
+    </div>
+  </div>
+
+  <!-- Ключ -->
+  <div class="key" id="key">🔑</div>
+</div>
+
+<div class="hint-bar" id="hint">🔍 Найди секретный ключ и открой дверь!</div>
+<div class="toast" id="toast"></div>
+
+<div class="victory" id="victory">
+  <h1>🎉 ПОБЕДА! 🎉</h1>
+  <p>Ты выбрался из секретной комнаты!</p>
+  <button onclick="location.reload()">🔄 Играть снова</button>
+</div>
+
+<script>
+  let keyFound = false;
+  let doorOpened = false;
+  let potLifted = false;
+
+  const rightPlant = document.getElementById('rightPlant');
+  const key = document.getElementById('key');
+  const door = document.getElementById('door');
+  const inv = document.getElementById('inv');
+  const hint = document.getElementById('hint');
+  const toast = document.getElementById('toast');
+  const victory = document.getElementById('victory');
+
+  // Тайная книга
+  const secretBook = document.getElementById('secretBook');
+  let bookFound = false;
+
+  function showToast(text) {
+    toast.textContent = text;
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 2500);
+  }
+
+  // Клик по правому горшку — приподнимаем
+  rightPlant.addEventListener('click', () => {
+    if (potLifted) return;
+    potLifted = true;
+    rightPlant.classList.add('lifted');
+    key.classList.add('visible');
+    hint.textContent = '✨ Под горшком что-то блестит! Нажми на ключ!';
+    showToast('🔍 Ты приподнял горшок!');
+  });
+
+  // Клик по ключу
+  key.addEventListener('click', () => {
+    if (keyFound) return;
+    if (!potLifted) {
+      showToast('🤔 Ключ где-то спрятан. Осмотри комнату!');
+      return;
+    }
+    keyFound = true;
+    key.style.display = 'none';
+    inv.textContent = '🔑';
+    inv.classList.add('has-key');
+    hint.textContent = '🔑 Ключ у тебя! Теперь открой дверь.';
+    showToast('🎒 Ключ добавлен в инвентарь!');
+  });
+
+  // Клик по двери
+  door.addEventListener('click', () => {
+    if (doorOpened) return;
+
+    if (keyFound) {
+      doorOpened = true;
+      door.classList.add('opened');
+      hint.textContent = '🚪 Дверь открыта! Ты свободен!';
+      showToast('🎉 Отлично! Дверь открыта!');
+
+      // Показываем тайную книгу через 800мс
+      setTimeout(() => {
+        secretBook.classList.add('revealed');
+        hint.textContent = '📖 Ого! За дверью тайная книга! Нажми на неё!';
+        showToast('✨ Ты нашёл тайную книгу!');
+      }, 800);
+
+      //  УБРАНО: автоматический показ экрана победы через 1300мс
+      // Теперь финал наступает только после клика по книге + 3 сек ожидания
+    } else {
+      door.classList.remove('shake');
+      void door.offsetWidth;
+      door.classList.add('shake');
+
+      if (potLifted && !keyFound) {
+        key.classList.remove('blink');
+        void key.offsetWidth;
+        key.classList.add('blink');
+      }
+
+      hint.textContent = '🔒 Дверь заперта. Где-то в комнате должен быть ключ...';
+      showToast('🚪 Дверь не открывается! Осмотрись!');
+    }
+  });
+
+  // Клик по тайной книге
+  secretBook.addEventListener('click', () => {
+    if (bookFound) return;
+    bookFound = true;
+    secretBook.style.animation = 'bookReveal 0.6s';
+    hint.textContent = '📖 Тайная книга открыта! Ждём завершения игры...';
+    showToast('📖 Ты нашёл настоящий секрет! 🏆');
+
+    //  НОВАЯ МЕХАНИКА: 3 секунды ожидания, затем экран победы
+    setTimeout(() => {
+      victory.classList.add('show');
+    }, 3000);
+  });
+
+  // Клик по сферам — декоративный отклик
+  document.querySelectorAll('.sphere').forEach(s => {
+    s.addEventListener('click', () => {
+      showToast('💡 Цветные кнопки... Может, это подсказка?');
+    });
+  });
+
+  // Клик по левому горшку
+  document.querySelector('.plant.left').addEventListener('click', () => {
+    showToast('🌴 Обычная пальма. Здесь ничего нет.');
+  });
+</script>
+
+</body>
+</html>
